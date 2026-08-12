@@ -77,12 +77,6 @@ jobs:
             # Build package
             MAKEFLAGS="-j$(nproc)" makepkg -sc --noconfirm --skipchecksums --skippgpcheck
 
-            # Extract pkgver and pkgrel for output
-            source PKGBUILD
-            echo "PKGVER=${pkgver}" >> "$GITHUB_OUTPUT"
-            echo "PKGREL=${pkgrel}" >> "$GITHUB_OUTPUT"
-            echo "RELEASE_TAG=${pkgver}-${pkgrel}" >> "$GITHUB_OUTPUT"
-
             # Move packages to root output directory
             mkdir -p "$GITHUB_WORKSPACE/dist"
             cp *.pkg.tar.zst "$GITHUB_WORKSPACE/dist/"
