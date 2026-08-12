@@ -1,0 +1,55 @@
+name: Check Upstream CachyOS Kernel Updates
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Fetch upstream version & check against latest release
+        id: version_check
+        run: |
+          set -euo pipefail
+
+          # Fetch upstream PKGBUILD content
+          PKGBUILD_URL="https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos/PKGBUILD"
+          PKGBUILD_CONTENT=$(curl -sSL "$PKGBUILD_URL")
+
+          # Extract pkgver and pkgrel
+          PKGVER=$(echo "$PKGBUILD_CONTENT" | grep -E '^pkgver=' | cut -d'=' -f2 | tr -d "'\"")
+          PKGREL=$(echo "$PKGBUILD_CONTENT" | grep -E '^pkgrel=' | cut -d'=' -f2 | tr -d "'\"")
+          UPSTREAM_TAG="${PKGVER}-${PKGREL}"
+
+          echo "Upstream version: ${UPSTREAM_TAG}"
+
+          # Fetch latest release tag from this repo
+          LATEST_RELEASE=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name // empty')
+
+          echo "Latest release tag: ${LATEST_RELEASE}"
+
+          if [ "$UPSTREAM_TAG" != "$LATEST_RELEASE" ]; then
+            echo "New version detected ($UPSTREAM_TAG != $LATEST_RELEASE). Triggering build..."
+            echo "NEW_VERSION=true" >> $GITHUB_OUTPUT
+            echo "UPSTREAM_TAG=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
+          else
+            echo "Already up to date ($UPSTREAM_TAG)."
+            echo "NEW_VERSION=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Kernel Build Workflow
+        if: steps.version_check.outputs.NEW_VERSION == 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-kernel-build
+          client-payload: '{"tag": "${{ steps.version_check.outputs.UPSTREAM_TAG }}"}'

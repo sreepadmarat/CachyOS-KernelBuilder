@@ -1,0 +1,143 @@
+name: Build Diet CachyOS Kernel
+
+on:
+  repository_dispatch:
+    types: [trigger-kernel-build]
+  workflow_dispatch:
+  push:
+    paths:
+      - 'modprobed.db'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    container:
+      image: archlinux:latest
+      options: --privileged
+
+    steps:
+      - name: Free Disk Space & Setup Swap for Full LTO
+        run: |
+          # Create additional swap space for Full LTO linking phase
+          fallocate -l 12G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=12288
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          free -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies & setup builder user
+        run: |
+          set -euo pipefail
+
+          # Initialize pacman keys and update system
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Sy --noconfirm --needed base-devel git clang lld llvm jq curl sudo
+
+          # Create non-root user 'builder' for makepkg
+          useradd -m -G wheel builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+          # Allow builder user to access workspace
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Build custom kernel as builder user
+        shell: bash
+        run: |
+          su builder -c '
+            set -euo pipefail
+            cd "$GITHUB_WORKSPACE"
+
+            # Clone upstream CachyOS linux-cachyos repository
+            git clone https://github.com/CachyOS/linux-cachyos.git upstream-cachyos
+            cd upstream-cachyos/linux-cachyos
+
+            # Copy local modprobed.db into build directory
+            cp "$GITHUB_WORKSPACE/modprobed.db" ./modprobed.db
+
+            # Modify PKGBUILD configuration
+            sed -i '\''s/^pkgbase=.*/pkgbase=linux-cachyos-ideapad-bore-lto-diet/'\'' PKGBUILD
+            sed -i '\''s/^: "${_cpusched:=.*}"/: "${_cpusched:=bore}"/'\'' PKGBUILD
+            sed -i '\''s/^: "${_processor_opt:=.*}"/: "${_processor_opt:=znver3}"/'\'' PKGBUILD
+            sed -i '\''s/^: "${_localmodcfg:=.*}"/: "${_localmodcfg:=yes}"/'\'' PKGBUILD
+            sed -i '\''s|^: "${_localmodcfg_path:=.*}"|: "${_localmodcfg_path:="./modprobed.db"}"|'\'' PKGBUILD
+            sed -i '\''s/^: "${_use_llvm_lto:=.*}"/: "${_use_llvm_lto:=full}"/'\'' PKGBUILD
+            sed -i '\''s/^: "${_tcp_bbr3:=.*}"/: "${_tcp_bbr3:=yes}"/'\'' PKGBUILD
+
+            # Build package
+            MAKEFLAGS="-j$(nproc)" makepkg -sc --noconfirm
+
+            # Extract pkgver and pkgrel for output
+            source PKGBUILD
+            echo "PKGVER=${pkgver}" >> "$GITHUB_OUTPUT"
+            echo "PKGREL=${pkgrel}" >> "$GITHUB_OUTPUT"
+            echo "RELEASE_TAG=${pkgver}-${pkgrel}" >> "$GITHUB_OUTPUT"
+
+            # Move packages to root output directory
+            mkdir -p "$GITHUB_WORKSPACE/dist"
+            cp *.pkg.tar.zst "$GITHUB_WORKSPACE/dist/"
+          '
+
+      - name: Generate Pacman repository database
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/dist"
+
+          # Create pacman database index
+          repo-add custom_repo.db.tar.gz *.pkg.tar.zst
+
+      - name: Read kernel version for tag
+        id: get_tag
+        run: |
+          set -euo pipefail
+          # Find tag from built package file name if needed
+          PKG_NAME=$(ls "$GITHUB_WORKSPACE/dist"/linux-cachyos-ideapad-bore-lto-diet-*.pkg.tar.zst | head -n1)
+          # Format: linux-cachyos-ideapad-bore-lto-diet-<pkgver>-<pkgrel>-<arch>.pkg.tar.zst
+          BASENAME=$(basename "$PKG_NAME")
+          TAG=$(echo "$BASENAME" | sed -E 's/linux-cachyos-ideapad-bore-lto-diet-([0-9.]+-([0-9]+|bore[0-9]*))-.*\.pkg\.tar\.zst/\1/')
+          
+          # If sed extraction falls back, fall back to timestamp or version string
+          if [ -z "$TAG" ]; then
+            TAG=$(date +'%Y.%m.%d-%H%M')
+          fi
+
+          echo "TAG_NAME=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.TAG_NAME }}
+          name: "CachyOS Kernel ${{ steps.get_tag.outputs.TAG_NAME }} (znver3)"
+          body: |
+            Custom "diet" CachyOS kernel built with `modprobed.db` for **Lenovo IdeaPad 5 Pro 14ACN6** (AMD Ryzen 7 5800U / Zen 3).
+            
+            - CPU Scheduler: BORE
+            - Architecture Opt: znver3
+            - LTO: Full LTO
+            - TCP Congestion Control: BBRv3
+            - Modprobed-db: Active (tailored for Lenovo IdeaPad 5 Pro 14ACN6)
+          files: |
+            dist/*.pkg.tar.zst
+            dist/custom_repo.db*
+            dist/custom_repo.files*
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete old releases (Keep latest only)
+        if: success()
+        uses: dev-drpr/delete-old-releases@v1.0.1
+        with:
+          keep_latest: 1
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
