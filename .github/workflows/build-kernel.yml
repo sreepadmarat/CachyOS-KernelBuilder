@@ -135,9 +135,13 @@ jobs:
 
       - name: Delete old releases (Keep latest only)
         if: success()
-        uses: dev-drpr/delete-old-releases@v1.0.1
-        with:
-          keep_latest: 1
-          delete_tags: true
+        run: |
+          set -euo pipefail
+          # List all releases except the latest tag and delete them
+          OLD_RELEASES=$(gh release list --json tagName,isLatest -q '.[] | select(.isLatest != true) | .tagName')
+          for TAG in $OLD_RELEASES; do
+            echo "Deleting old release $TAG..."
+            gh release delete "$TAG" --cleanup-tag -y || true
+          done
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
