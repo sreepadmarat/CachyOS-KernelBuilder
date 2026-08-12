@@ -62,16 +62,15 @@ jobs:
             git clone https://github.com/CachyOS/linux-cachyos.git upstream-cachyos
             cd upstream-cachyos/linux-cachyos
 
-            # Copy local modprobed.db into builder home and build directory
-            cp "$GITHUB_WORKSPACE/modprobed.db" "$HOME/modprobed.db"
-            cp "$GITHUB_WORKSPACE/modprobed.db" ./modprobed.db
+            # Copy local modprobed.db into builder home directory
+            cp "$GITHUB_WORKSPACE/modprobed.db" /home/builder/modprobed.db
 
             # Modify PKGBUILD configuration
             sed -i '\''s/^pkgbase=.*/pkgbase=linux-cachyos-ideapad-bore-lto-diet/'\'' PKGBUILD
             sed -i '\''s/^: "${_cpusched:=.*}"/: "${_cpusched:=bore}"/'\'' PKGBUILD
             sed -i '\''s/^: "${_processor_opt:=.*}"/: "${_processor_opt:=znver3}"/'\'' PKGBUILD
             sed -i '\''s/^: "${_localmodcfg:=.*}"/: "${_localmodcfg:=yes}"/'\'' PKGBUILD
-            sed -i '\''s|^: "${_localmodcfg_path:=.*}"|: "${_localmodcfg_path:="$HOME/modprobed.db"}"|'\'' PKGBUILD
+            sed -i '\''s|^: "${_localmodcfg_path:=.*}"|: "${_localmodcfg_path:="/home/builder/modprobed.db"}"|'\'' PKGBUILD
             sed -i '\''s/^: "${_use_llvm_lto:=.*}"/: "${_use_llvm_lto:=full}"/'\'' PKGBUILD
             sed -i '\''s/^: "${_tcp_bbr3:=.*}"/: "${_tcp_bbr3:=yes}"/'\'' PKGBUILD
 
