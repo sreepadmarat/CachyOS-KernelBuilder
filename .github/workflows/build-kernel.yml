@@ -42,7 +42,7 @@ jobs:
           # Initialize pacman keys and update system
           pacman-key --init
           pacman-key --populate archlinux
-          pacman -Sy --noconfirm --needed base-devel git clang lld llvm jq curl sudo
+          pacman -Sy --noconfirm --needed base-devel git clang lld llvm jq curl sudo github-cli
 
           # Create non-root user 'builder' for makepkg
           useradd -m -G wheel builder
