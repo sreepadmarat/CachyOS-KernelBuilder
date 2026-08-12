@@ -22,11 +22,14 @@ jobs:
     steps:
       - name: Free Disk Space & Setup Swap for Full LTO
         run: |
-          # Create additional swap space for Full LTO linking phase
-          fallocate -l 12G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=12288
-          chmod 600 /swapfile
-          mkswap /swapfile
-          swapon /swapfile
+          if ! grep -q '/swapfile' /proc/swaps; then
+            if [ ! -f /swapfile ]; then
+              fallocate -l 12G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=12288
+              chmod 600 /swapfile
+              mkswap /swapfile
+            fi
+            swapon /swapfile || true
+          fi
           free -h
 
       - name: Checkout repository
