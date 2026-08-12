@@ -110,7 +110,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.get_tag.outputs.TAG_NAME }}
+          tag_name: "latest"
           name: "CachyOS Kernel ${{ steps.get_tag.outputs.TAG_NAME }} (znver3)"
           body: |
             Custom "diet" CachyOS kernel built with `modprobed.db` for **Lenovo IdeaPad 5 Pro 14ACN6** (AMD Ryzen 7 5800U / Zen 3).
