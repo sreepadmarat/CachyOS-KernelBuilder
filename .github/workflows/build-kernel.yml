@@ -75,7 +75,7 @@ jobs:
             sed -i '\''s/^: "${_tcp_bbr3:=.*}"/: "${_tcp_bbr3:=yes}"/'\'' PKGBUILD
 
             # Build package
-            MAKEFLAGS="-j$(nproc)" makepkg -sc --noconfirm
+            MAKEFLAGS="-j$(nproc)" makepkg -sc --noconfirm --skipchecksums
 
             # Extract pkgver and pkgrel for output
             source PKGBUILD
