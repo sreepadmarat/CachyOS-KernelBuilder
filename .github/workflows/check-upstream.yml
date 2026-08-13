@@ -26,10 +26,8 @@ jobs:
           PKGBUILD_URL="https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos/PKGBUILD"
           PKGBUILD_CONTENT=$(curl -sSL "$PKGBUILD_URL")
 
-          # Extract pkgver and pkgrel
-          PKGVER=$(echo "$PKGBUILD_CONTENT" | grep -E '^pkgver=' | cut -d'=' -f2 | tr -d "'\"")
-          PKGREL=$(echo "$PKGBUILD_CONTENT" | grep -E '^pkgrel=' | cut -d'=' -f2 | tr -d "'\"")
-          UPSTREAM_TAG="${PKGVER}-${PKGREL}"
+          # Extract version variables from PKGBUILD by evaluating in bash subshell
+          UPSTREAM_TAG=$(bash -c "$PKGBUILD_CONTENT; echo \${pkgver}-\${pkgrel}")
 
           echo "Upstream version: ${UPSTREAM_TAG}"
 
