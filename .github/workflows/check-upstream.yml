@@ -30,26 +30,26 @@ jobs:
 
           echo "Upstream version: ${UPSTREAM_TAG}"
 
-          # Fetch latest release tag from this repo
-          LATEST_RELEASE=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          # Fetch latest release title from this repo (release title format: "CachyOS Kernel <pkgver>-<pkgrel> (znver3)")
+          RELEASE_TITLE=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name // empty')
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest" | jq -r '.name // empty')
 
-          echo "Latest release tag: ${LATEST_RELEASE}"
+          echo "Latest release title: ${RELEASE_TITLE}"
 
-          if [ "$UPSTREAM_TAG" != "$LATEST_RELEASE" ]; then
-            echo "New version detected ($UPSTREAM_TAG != $LATEST_RELEASE). Triggering build..."
+          if [[ "$RELEASE_TITLE" != *"$UPSTREAM_TAG"* ]]; then
+            echo "New version detected (${UPSTREAM_TAG} not in release title). Triggering build..."
             echo "NEW_VERSION=true" >> $GITHUB_OUTPUT
             echo "UPSTREAM_TAG=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
           else
-            echo "Already up to date ($UPSTREAM_TAG)."
+            echo "Already up to date (${UPSTREAM_TAG})."
             echo "NEW_VERSION=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Trigger Kernel Build Workflow
         if: steps.version_check.outputs.NEW_VERSION == 'true'
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: trigger-kernel-build
-          client-payload: '{"tag": "${{ steps.version_check.outputs.UPSTREAM_TAG }}"}'
+        run: |
+          echo "Triggering build-kernel.yml..."
+          gh workflow run build-kernel.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
