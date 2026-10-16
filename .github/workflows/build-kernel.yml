@@ -94,11 +94,11 @@ jobs:
         id: get_tag
         run: |
           set -euo pipefail
-          # Find tag from built package file name if needed
-          PKG_NAME=$(ls "$GITHUB_WORKSPACE/dist"/linux-cachyos-ideapad-bore-lto-diet-*.pkg.tar.zst | head -n1)
+          # Find tag from built package file name (exclude headers package)
+          PKG_NAME=$(ls "$GITHUB_WORKSPACE/dist"/*.pkg.tar.zst | grep -v 'headers' | head -n1)
           # Format: linux-cachyos-ideapad-bore-lto-diet-<pkgver>-<pkgrel>-<arch>.pkg.tar.zst
           BASENAME=$(basename "$PKG_NAME")
-          TAG=$(echo "$BASENAME" | sed -E 's/linux-cachyos-ideapad-bore-lto-diet-([0-9.]+-([0-9]+|bore[0-9]*))-.*\.pkg\.tar\.zst/\1/')
+          TAG=$(echo "$BASENAME" | sed -E 's/linux-cachyos-ideapad-bore-lto-diet-([0-9.]+-[0-9]+)-.*\.pkg\.tar\.zst/\1/')
           
           # If sed extraction falls back, fall back to timestamp or version string
           if [ -z "$TAG" ]; then
@@ -110,7 +110,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "latest"
+          tag_name: "v${{ steps.get_tag.outputs.TAG_NAME }}"
           name: "CachyOS Kernel ${{ steps.get_tag.outputs.TAG_NAME }} (znver3)"
           body: |
             Custom "diet" CachyOS kernel built with `modprobed.db` for **Lenovo IdeaPad 5 Pro 14ACN6** (AMD Ryzen 7 5800U / Zen 3).

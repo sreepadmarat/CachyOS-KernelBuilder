@@ -31,15 +31,19 @@ jobs:
 
           echo "Upstream version: ${UPSTREAM_TAG}"
 
-          # Fetch latest release title from this repo (release title format: "CachyOS Kernel <pkgver>-<pkgrel> (znver3)")
-          RELEASE_TITLE=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          # Fetch latest release from this repo
+          LATEST_RELEASE=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest" | jq -r '.name // empty')
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+
+          RELEASE_TITLE=$(echo "$LATEST_RELEASE" | jq -r '.name // empty')
+          RELEASE_TAG=$(echo "$LATEST_RELEASE" | jq -r '.tag_name // empty')
 
           echo "Latest release title: ${RELEASE_TITLE}"
+          echo "Latest release tag: ${RELEASE_TAG}"
 
-          if [[ "$RELEASE_TITLE" != *"$UPSTREAM_TAG"* ]]; then
-            echo "New version detected (${UPSTREAM_TAG} not in release title). Triggering build..."
+          if [[ "$RELEASE_TITLE" != *"$UPSTREAM_TAG"* ]] && [[ "$RELEASE_TAG" != *"$UPSTREAM_TAG"* ]]; then
+            echo "New version detected (${UPSTREAM_TAG} not in latest release). Triggering build..."
             echo "NEW_VERSION=true" >> $GITHUB_OUTPUT
             echo "UPSTREAM_TAG=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
           else

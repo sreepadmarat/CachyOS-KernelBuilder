@@ -67,7 +67,7 @@ To use these pre-built packages via `pacman`, add the following custom repositor
 ```ini
 [custom_repo]
 SigLevel = Optional TrustAll
-Server = https://github.com/sreepadmarat/CachyOS-KernelBuilder/releases/download/latest
+Server = https://github.com/sreepadmarat/CachyOS-KernelBuilder/releases/latest/download
 ```
 
 Then synchronize and install:
