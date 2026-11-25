@@ -39,10 +39,19 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Enable CachyOS repository (needed for patched dependencies like pahole>=1:1.32-2)
+          cat << 'EOF' >> /etc/pacman.conf
+
+          [cachyos]
+          SigLevel = Optional TrustAll
+          Server = https://cdn77.cachyos.org/repo/$arch/$repo
+          Server = https://mirror.cachyos.org/repo/$arch/$repo
+          EOF
+
           # Initialize pacman keys and update system
           pacman-key --init
           pacman-key --populate archlinux
-          pacman -Sy --noconfirm --needed base-devel git clang lld llvm jq curl sudo github-cli
+          pacman -Syu --noconfirm --needed base-devel git clang lld llvm jq curl sudo github-cli cachyos/pahole
 
           # Create non-root user 'builder' for makepkg
           useradd -m -G wheel builder
